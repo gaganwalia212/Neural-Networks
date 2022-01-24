@@ -192,18 +192,32 @@ def convert_to_oht(y,no_of_classes):
     y_oht[range(m),y]=1
     return y_oht
 
-def train(model,X,y,epochs=200,learning_rate=0.0001,logs=True):
+def train(model,X,y,epochs=200,learning_rate=0.0001,logs=True,*args):
+    """
+    args- threshold to print,x_valid,y_valid
+    """
     no_of_classes=model.no_of_classes
     y_oht=convert_to_oht(y,no_of_classes)
+    if(len(args)>1):
+        y_oht_valid=convert_to_oht(args[2],no_of_classes)
+    x=100
+    if(len(args)>0):
+        x=args[0]
     losses=[]
+    valid_losses=[]
     for i in range(epochs):
         y_=model.forward_propagation(X)
         l=model.loss(y_oht,y_)
         losses.append(l)
-        if(logs):
+        if(len(args)>1):
+            y_valid=model.forward_propagation(args[1])
+            l=model.loss(y_oht_valid,y_valid)
+            valid_losses.append(l)
+            
+        if(logs and i%x==0):
             print("Iteration {}, loss= {}".format(i,l))
         model.backward_propagation(X,y_oht,learning_rate)
-    return losses
+    return losses,valid_losses
 
 def visualize_decision_boundry(X,Y,model):
     # X is only two featured
