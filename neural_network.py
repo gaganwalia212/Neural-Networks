@@ -1,14 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # multilayered perceptrons
-# creating a neural networkd having
-# 
-# input-2 parametes
-# output-2 parameters
-# 2 hidden layers with 4 and 3 neurons respectively
-
-# In[47]:
+# In[1]:
 
 
 import numpy as np
@@ -16,7 +9,7 @@ import matplotlib.pyplot as plt
 from sklearn.datasets import make_circles,make_blobs,make_moons
 
 
-# In[2]:
+# In[41]:
 
 
 def sigmoid(x):
@@ -63,10 +56,119 @@ def tanh_diff(x):
 activations_differential={'sigmoid':sigmoid_diff,'relu':relu_diff,'tanh':tanh_diff}
 
 
-# # generating the datset 
-# generate datasets, having two attributes and also belonging to two classes
+def softmax(a):
+    exp_a=np.exp(a)
+    exp_sum=np.sum(exp_a,axis=1,keepdims=True)
+    return exp_a/exp_sum
 
-# In[111]:
+
+# In[149]:
+
+
+class NeuralNetwork:
+    def __init__(self,n,no_of_neurons,no_of_features,activation_function):
+        """
+        n=total number of layers
+        no_of_elements=total no of neurons in each layer(list)
+        input_size= total no of input features
+        activation_function=name of the activation funtion 
+        """
+        weights=[]# list of weight matrices
+        biases=[]# list of biasis
+        for i in range(n):
+            col=no_of_neurons[i]
+            if(i==0):
+                row=no_of_features
+            else:
+                row=no_of_neurons[i-1]
+            w=np.random.randn(row,col)# weight matrix for that layer
+            weights.append(w)
+            b=np.zeros((1,col))#bias for that layer
+            biases.append(b)
+        self.weights=weights;
+        self.biases=biases
+        self.n=n;
+        self.activation_fun=activations[activation_function]
+        self.activation_diff_fun=activations_differential[activation_function]
+        self.no_of_classes=no_of_neurons[-1]
+    def forward_propagation(self,X):
+        #X->m X n matrix. m is the number of inputs and n is the number of features
+        activation_list=[]
+        z_list=[]
+        weights=self.weights
+        biases=self.biases
+        activation_fun=self.activation_fun
+        n=self.n
+        
+        prev_activation=X;
+        for i in range(n):
+            z=np.dot(prev_activation,weights[i])+biases[i]
+            if(i<n-1):
+                a=activation_fun(z)
+            else:
+                a=softmax(z)
+            activation_list.append(a)
+            z_list.append(z)
+            prev_activation=a
+        self.z_list=z_list;
+        self.activation_list=activation_list
+        return activation_list[-1]
+    
+    def backward_propagation(self,X,Y,learning_rate=0.01):
+        """
+        x->m X n matrix. m is the number of inputs and n is the number of features
+        y-> actual outut
+        
+        """
+        dw=[]# list of chanegs in matrices
+        db=[]# list of changes in biases
+        
+        weights=self.weights
+        biases=self.biases
+        activation_list=self.activation_list
+        z_list=self.z_list
+        next_delta=0
+        activation_diff_fun=self.activation_diff_fun
+        n=self.n
+        m=1
+        for i in reversed(range(n)):
+            if(i==n-1):
+                delta=activation_list[i]-Y
+            else :
+                delta=np.dot(next_delta,weights[i+1].T)*activation_diff_fun(z_list[i])
+            next_delta=delta
+            
+            if(i==0):
+                dwi=np.dot(X.T,delta)/m
+            else:
+                dwi=np.dot(activation_list[i-1].T,delta)/m
+            
+            dbi=np.sum(delta,axis=0)/m
+            dw.insert(0,dwi)
+            db.insert(0,dbi)
+
+        for i in range(n):
+            weights[i]-=learning_rate*dw[i]
+            biases[i]-=learning_rate*db[i]
+        self.weights=weights
+        self.biases=biases
+    
+    
+    def predict(self,x):
+        y_=self.forward_propagation(x)
+        return np.argmax(y_,axis=1);
+    def loss(self,y_oht,y_):
+        return -np.mean(y_oht*np.log(y_))
+            
+        
+        
+            
+            
+            
+
+
+# In[150]:
+
 
 
 def generate_dataset(type):
@@ -78,123 +180,9 @@ def generate_dataset(type):
         return (X,Y)
     X,Y=make_blobs(500,2,centers=2,random_state=4)
     return (X,Y)
-    
-        
-        
 
 
-# In[112]:
-
-
-def softmax(a):
-    exp_a=np.exp(a)
-    exp_sum=np.sum(exp_a,axis=1,keepdims=True)
-    return exp_a/exp_sum
-
-
-# In[113]:
-
-
-class NeuralNetwork:
-    def __init__(self,input_size,output_size,hidden,activation_function):
-        np.random.seed(0)
-        model={}# dictionary
-        """
-        input layer--(W1,B1)-->layer1--(W2,B2)-->layer2--(W3,B3)-->output layer
-        """
-        
-        # from input layer to layer 1
-        model['W1']=np.random.randn(input_size,hidden[0])
-        model['B1']=np.zeros((1,hidden[0]))
-        
-        # from layer 1 to layer 2
-        model['W2']=np.random.randn(hidden[0],hidden[1])
-        model['B2']=np.zeros((1,hidden[1]))
-        
-        # from  layer 2 to output layer
-        model['W3']=np.random.randn(hidden[1],output_size)
-        model['B3']=np.zeros((1,output_size))
-        
-        """
-        for x in model:
-            print(x,model[x].shape)
-        """
-        self.model=model
-        self.activation=activations[activation_function]
-        self.activation_diff=activations_differential[activation_function]
-    def forward_propagation(self,X):
-        """
-        X--> Matrix of size m X n where m is the no of examples and n=input_size
-        """
-        model=self.model
-        W1,W2,W3=model['W1'],model['W2'],model['W3']
-        b1,b2,b3=model['B1'],model['B2'],model['B3']
-        activation=self.activation
-        
-        z1=np.dot(X,W1)+b1
-        a1=activation(z1)
-        
-        z2=np.dot(a1,W2)+b2
-        a2=activation(z2)
-        
-        z3=np.dot(a2,W3)+b3
-        a3=softmax(z3)
-        #print(a3)
-        #print(a3.sum(axis=1))
-        self.activations=(a1,a2,a3,z1,z2,z3)
-        return a3
-        
-    def backward_propagation(self,x,y,learning_rate=0.001):
-        model=self.model
-        W1,W2,W3=model['W1'],model['W2'],model['W3']
-        b1,b2,b3=model['B1'],model['B2'],model['B3']
-        (a1,a2,a3,z1,z2,z3)=self.activations
-        activation_diff=self.activation_diff
-        
-        
-        delta3=a3-y
-        dw3=np.dot(a2.T,delta3)
-        db3=np.sum(delta3,axis=0)
-        
-        
-        delta2=np.dot(delta3,W3.T)*(activation_diff(z2))
-        dw2=np.dot(a1.T,delta2)
-        db2=np.sum(delta2,axis=0)
-        
-        
-        delta1=np.dot(delta2,W2.T)*(activation_diff(z1))
-        dw1=np.dot(x.T,delta1)
-        db1=np.sum(delta1,axis=0)
-        
-        # update
-        self.model["W3"]-=learning_rate*dw3
-        self.model["B3"]-=learning_rate*db3
-        
-        self.model["W2"]-=learning_rate*dw2
-        self.model["B2"]-=learning_rate*db2
-        
-        self.model["W1"]-=learning_rate*dw1
-        self.model["B1"]-=learning_rate*db1
-        
-
-
-    def predict(self,x):
-        y_=self.forward_propagation(x)
-        return np.argmax(y_,axis=1);
-    def summary(self):
-        model=self.model
-        W1,W2,W3=model['W1'],model['W2'],model['W3']
-        print(W1,W2,W3)
-        
-    def loss(self,y_oht,y_):
-        return -np.mean(y_oht*np.log(y_))
-        
-        
-
-        
-
-
-# In[114]:
+# In[151]:
 
 
 # convert the simple labels into one hot vector
@@ -204,7 +192,8 @@ def convert_to_oht(y,no_of_classes):
     y_oht[range(m),y]=1
     return y_oht
 
-def train(model,X,y,no_of_classes,epochs=200,learning_rate=0.0001,logs=True):
+def train(model,X,y,epochs=200,learning_rate=0.0001,logs=True):
+    no_of_classes=model.no_of_classes
     y_oht=convert_to_oht(y,no_of_classes)
     losses=[]
     for i in range(epochs):
@@ -232,32 +221,12 @@ def visualize_decision_boundry(X,Y,model):
     
     plt.scatter(x[:,0],x[:,1],c=y_,cmap=plt.get_cmap('Accent'))
     plt.scatter(X[:,0],X[:,1],c=Y,cmap=plt.get_cmap("rainbow"))
-    
 
 
-# # Running the model
-
-# ## Running for various dataset
-
-# In[122]:
+# In[152]:
 
 
-datasets=['moons','circles','blobs']
-for d in datasets:
-    print("\n{}\n".format(d))
-    X,Y=generate_dataset(d)
-    my_model=NeuralNetwork(2,2,[10,5],'tanh')
-    losses=train(my_model,X,Y,2,1500,0.001,False)
-    Y_=my_model.predict(X)
-    plt.plot(losses)
-    plt.title(d)
-    plt.show()
-    
-    print("Efficiency={}".format(np.mean(np.array(Y_==Y))))
-    
-    visualize_decision_boundry(X,Y,my_model)
-    plt.title(d)
-    plt.show()
+
 
 
 # In[ ]:
